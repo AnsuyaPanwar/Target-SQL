@@ -172,18 +172,242 @@ The products.csv contain following features:
 9 . product_width_cm : Width of the product ordered in centimeters
 
 
+## 4. ANALYZE
+Data Analyzing
+BigQuery was used to analyze data.
 
 
+#Q1
 
+SELECT column_name,
+data_type
+FROM target-401004.target.INFORMATION_SCHEMA.COLUMNS
+WHERE table_name = 'customers'
 
+SELECT
+MIN (order_purchase_timestamp) AS start_date,
+MAX (order_purchase_timestamp) AS end_date
+FROM `target.orders
 
+#Q2
 
+select
+count(distinct customer_city) as city,
+count(distinct customer_state) as state
+from `target.orders` o
+inner join `target.customers` c
+on c.customer_id = o.customer_id
 
+#Q3
 
+select
+extract(year from order_purchase_timestamp ) as year,
+extract(month from order_purchase_timestamp ) as month,
+count(order_id) as num_of_orders
+from `target.orders`
+group by 1,2
+order by 1,2
 
+#Q4
 
+select
+extract(month from order_purchase_timestamp) as month,
+count(order_id) as num_of_orders
+from `target.orders`
+group by 1
+order by 1
 
+#Q5
 
+select case
+when extract(hour from order_purchase_timestamp ) between 0 and 6 then 'Dawn'
+when extract(hour from order_purchase_timestamp ) between 7 and 12 then Mornings'
+when extract(hour from order_purchase_timestamp ) between 13 and 18 then 'Afternoon'
+when extract(hour from order_purchase_timestamp ) between 19 and 24 then 'Night'
+else 'unknown'
+end as order_time_of_day,
+count(order_id) as num_of_orders
+from `target.orders`
+group by 1
+order by 2 desc
+
+#Q6
+
+select
+extract(month from order_purchase_timestamp ) as month,
+c.customer_state,
+count(order_id) as num_of_orders
+from `target.orders` o
+inner join `target.customers` c
+on o.customer_id = c.customer_id
+group by 1,2
+order by 2,1
+
+#Q7
+
+select
+ customer_state,
+ count(distinct customer_unique_id) as no_of_customer
+ from `target.customers`
+ group by 1
+ order by 2 desc
+
+#Q8
+
+with final as(
+select format_date('%Y',
+ order_purchase_timestamp)as date,
+ sum(p.payment_value) as cost_of_orders
+from `target.payments` p
+inner join `target.orders` o
+on p.order_id = o.order_id
+where extract(year from o.order_purchase_timestamp) between 2017 and 2018 and
+ extract(month from o.order_purchase_timestamp)between 1 and 8
+group by 1
+order by 1)
+select * ,lag(cost_of_orders) over(order by date) as cost_of_orders_previous_month,
+round(100*(cost_of_orders - lag(cost_of_orders)over(order by
+date))/lag(cost_of_orders)over(order by date),1) as percent_increase
+from final
+order by date
+
+#Q9
+
+select
+c.customer_state ,
+round(sum(p.payment_value))as total_price,
+round(avg(p.payment_value))as average_price
+from `target.payments` p
+inner join `target.orders` o
+on p.order_id = o.order_id
+inner join `target.customers` c
+on o.customer_id = c.customer_id
+group by 1
+order by 2 desc
+
+#Q10
+
+ select c.customer_state as State,
+ round(sum(i.freight_value)) as Total_Price,
+ round(avg(i.freight_value)) as Avg_Price
+ from `target.customers`c
+ inner join `target.orders`o
+ on c.customer_id = o.customer_id
+ inner join `target.order_items`i
+ on o.order_id = i.order_id
+ group by c.customer_state
+ order by 2 desc
+
+#Q11
+
+select order_id,
+date_diff(order_delivered_customer_date,order_purchase_timestamp, day) as delivery_time,
+date_diff(order_estimated_delivery_date, order_delivered_customer_date, day) as
+Diff_estimated_delivery
+from `target.orders`
+order by 2 desc
+
+#Q12
+
+WITH AvgFreightValues AS (
+SELECT
+c.customer_state,
+ROUND(AVG(i.freight_value)) AS Avg_Freight_Value,
+ROW_NUMBER() OVER (ORDER BY AVG(i.freight_value) DESC) AS HighRank,
+ROW_NUMBER() OVER (ORDER BY AVG(i.freight_value) ASC) AS LowRank
+FROM `target.customers` c
+INNER JOIN`target.orders` o
+ON c.customer_id = o.customer_id
+INNER JOIN `target.order_items` i
+ON o.order_id = i.order_id
+GROUP BY c.customer_state
+)
+SELECT
+customer_state,
+Avg_Freight_Value
+FROM AvgFreightValues
+WHERE HighRank <= 5 OR LowRank <= 5
+ORDER BY HighRank, LowRank;
+
+#Q13
+
+WITH AvgDeliveryTime AS (
+SELECT
+c.customer_state,
+ROUND(AVG(date_diff(o.order_delivered_customer_date, o.order_purchase_timestamp, day)))
+AS Avg_Delivery_Time,
+ROW_NUMBER() OVER (ORDER BY AVG(date_diff(o.order_delivered_customer_date,
+o.order_purchase_timestamp, day)) DESC) AS HighRank,
+ROW_NUMBER() OVER (ORDER BY AVG(date_diff(o.order_delivered_customer_date,
+o.order_purchase_timestamp, day)) ASC) AS LowRank
+FROM `target.customers` c
+INNER JOIN`target.orders` o
+ON c.customer_id = o.customer_id
+GROUP BY c.customer_state)
+SELECT
+customer_state,
+Avg_Delivery_Time
+FROM AvgDeliveryTime
+WHERE HighRank <= 5 OR LowRank <= 5
+ORDER BY HighRank , LowRank ;
+
+#Q14
+
+SELECT c.customer_state, ROUND(AVG(DATE_DIFF(o.order_delivered_customer_date,
+o.order_estimated_delivery_date, day))) AS Delivery_Time
+FROM `target.customers`c
+JOIN `target.orders`o
+ON c.customer_id = o.customer_id
+WHERE o.order_status = 'delivered'
+FROUP BY c.customer_state
+ORDER BY 2 ASC
+LIMIT 5
+
+#Q15
+
+with final as(
+SELECT
+EXTRACT(month FROM o.order_purchase_timestamp) AS Month,
+p.payment_type,
+COUNT(p.order_id) AS Orders,
+FROM `target.orders`o
+JOIN `target.payments`p
+ON o.order_id = p.order_id
+GROUP BY 1,2
+ORDER BY 1 ASC)
+select * ,LAG(Orders) OVER (PARTITION BY payment_type ORDER BY Month) AS
+Previous_Month_Orders
+from final
+
+#Q16
+
+SELECT
+payment_installments,
+COUNT(order_id) AS Orders
+FROM `target.payments`
+WHERE payment_installments>=1
+GROUP BY 1
+ORDER BY 1 ASC;
+
+## 5. ACT
+
+## Insights:
+* It is clear that orders placing was started from “September 4 ,2016” and ended on “August 17,2018”.
+* There are 4119 cities and 27 states of different customers who have ordered the products.
+* There is indeed some type of monthly seasonality in the number of orders being placed.
+* Months 5 (May) and 8 (August) have the highest number of orders (10573 and 10843,respectively).
+* During ‘Afternoon’, the Brazilian customers mostly place their orders.
+* States SP, RJ, MG have the most number of customers.
+* States RR, AP, AC have the lowest number of customers, a negative from the company point of view.
+* The cost of orders in 2018 increased by approximately 137.0% compared to 2017.
+* AC, AP, RR have the lowest total freight values which implies that shipping to and from these states is less expensive.
+* SP, RJ, MG have the highest total freight values, which means that shipping to and from these states is more expensive.
+* The data shows trends in the number of orders for different payment types, including "credit_card," "UPI," "voucher," and "debit_card.
+
+## Recommendations:
+* Improve infrastructure : Freight value can be influenced by factors such as geographical location, distance from the distribution
+  center, transportation infrastructure.
+* Advancement in payment mode  : This can help to grow business faster which will lead to increase in profit.
 
 
 
