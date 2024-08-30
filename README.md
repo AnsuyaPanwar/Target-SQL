@@ -27,7 +27,7 @@ Assuming you are a data analyst/ scientist at Target, you have been assigned the
 
 ## 2. PREPARE
 ### Data Storage:
-The public dataset is completely available on the google drive platform where it stores and consolidates all available datasets for analysis. The specific individual datasets at hand can be obtained at this link below: https://drive.google.com/drive/folders/1TGEc66YKbD443nslRi1bWgVd238gJCnb
+The public dataset is completely available on the google drive platform where it stores and consolidates all available datasets for analysis. The specific individual datasets at hand can be obtained at this link below: <a href = "https://drive.google.com/drive/folders/1TGEc66YKbD443nslRi1bWgVd238gJCnb" > Click here <a/>
 
 ## 3. PROCESS
 ## Tools Used:
